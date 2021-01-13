@@ -3,7 +3,7 @@
 # install.packages("R2jags")
 library(R2jags)
 
-setwd("C:\\Users\\Rob\\Courses\\Bayes\\labsjags\\lab1")
+setwd("~/Documents/UCLA/Winter 2021/biostat234/lab 1/")
 getwd()
 
 ## set your working directory with setwd()
@@ -30,7 +30,7 @@ cat("
 		y[i] ~ dnorm(mu[i],tau)
 		mu[i] <- alpha + beta * (x[i]-x.bar)
 		}
-		alpha ~ dnorm(0, 0.0001)
+		alpha ~ dnorm(0, .0001)
 		beta ~ dnorm(1,1)
 		tau ~ dgamma(.25,.25)
     sigma <- 1/sqrt(tau)
@@ -79,12 +79,30 @@ lab1.sim = jags(jags.data, jags.inits, jags.params,
               model.file = "model1.txt", 
               n.chains = 3, n.iter = 11000, n.burnin = 1000)
 
+for (i in 1:length(alt_prior)) {
+  simname <- str_c(alt_prior[i])
+  writeLines(str_c("Iteration ",i," for model with sd ",alt_prior[i], sep = ""))
+  
+  lab.sim = jags(jags.data, jags.inits, jags.params, 
+                  model.file = str_c(alt_prior[i], data_suffix), 
+                  n.chains = 3, n.iter = 11000, n.burnin = 1000)
+  writeLines(str_c("Assigned ",simname," to jags object", sep = ""))
+  assign(simname, lab.sim)
+}
+
 ##
 ## Tools are provided to automatically summarize the results. 
 ## These tools aren't perfect, and we will need to edit/adapt the output
 ## depending on our needs. 
 
 print(lab1.sim)
+print(model100)
+model100$BUGSoutput$summary[1,1]
+print(model10)
+print(model1)
+print(model.1)
+print(model.01)
+print(model.001)
 
 plot(lab1.sim)
 
@@ -114,6 +132,7 @@ plot(sigma[1:1000] , type = "l")
 
 length(alpha)   ## How many samples? 
 
+mean(beta)
 mean(alpha)
 sd(alpha)
 quantile(alpha,c(.025,.25, .5, .75, .975))
