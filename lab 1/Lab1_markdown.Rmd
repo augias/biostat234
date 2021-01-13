@@ -1,0 +1,225 @@
+---
+title: "Biostatistics 234: Lab 1"
+author: "Fernando Mora"
+output: pdf_document
+tables: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = '~/Documents/UCLA/Winter 2021/biostat234/lab 1/')
+```
+
+## Questions
+
+1. What information is in the chapter 5 tables of the jags user manual?  
+The tables in chapter 5 of the JAGS manual lists the possible functions JAGS has for users to set their model parameters (I assume the priors set in the model text file). Table 5.1 specifies mathematical operators to transform vector values; 5.2 offers similar scalar functions; and finally table 5.3 offers syntax/names for density, distribution, and quantile functions according to distribution type. 
+
+2. What information is in the distributions chapter of the jags user manual? Recite briefly the tables in this chapter.  
+Chapter 6 tells the reader about the defined distributions, real-valued and discret-valued, used to define nodes after the ~ operator. The tables with said distribution functions and their uses include univariate distributions in table 6.1, discrete distributions in table 6.2, and multivariate distributions in table 6.3. Aliases from canonical names are also provided, e.g.: the binomial distribution we saw in lab 1 is canonically dbin(p,n) though we used dbinom in our model file.
+
+3. See the WinBUGS examples at http://www.mrc-bsu.cam.ac.uk/wp-content/uploads/WinBUGS_Vol1.pdf . (Or: install WinBUGS on your computer! See the Help menu, Examples volume I, roughly 9th example down.) What models (plural) does the Stacks example use? Specify each model. (There are 6 models).  
+*   Model one:  
+    $y_{i} \sim No(\mu_{i}\tau)$  
+    $\mu_{i} = \beta_{0} + \beta_{1}z_{1} +\beta_{2}z_{2} +\beta_{3}z_{3}$   
+    $\beta_{0} \sim  N(\mu_{i},0.00001)$   
+    $\beta_{j} \sim N(0, 0.00001) for\ j\ in\ 1:4$   
+    $\sigma = \sqrt{\frac{1}{\tau}}$   
+    $\tau \sim Gamma(1^{-3}, 1^{-3})$  
+    
+*   Model two:   
+    $y_{i} \sim Double \ exp(\mu_{i}\tau)$   
+    $\mu_{i} = \beta_{0} + \beta_{1}z_{1} +\beta_{2}z_{2} +\beta_{3}z_{3}$   
+    $\beta_{0} \sim  N(\mu_{i},0.00001)$   
+    $\beta_{j} \sim N(0, 0.00001) for\ j\ in\ 1:4$   
+    $\sigma = \frac{\sqrt{2}}{\tau}$   
+    $\tau \sim Gamma(1^{-3}, 1^{-3})$  
+    
+*   Model three:   
+    $y_{i} \sim t(\mu_{i}\tau, d)$   
+    $\mu_{i} = \beta_{0} + \beta_{1}z_{1} +\beta_{2}z_{2} +\beta_{3}z_{3}$  
+    $\beta_{0} \sim  N(\mu_{i},0.00001)$  
+    $\beta_{j} \sim N(0, 0.00001) for\ j\ in\ 1:4$   
+    $\sigma = \sqrt{\frac{d}{\tau*(df-2)}}$   
+    $\tau \sim Gamma(1^{-3}, 1^{-3})$  
+
+*   Model four:  
+    $y_{i} \sim No(\mu_{i}\tau)$   
+    $\mu_{i} = \beta_{0} + \beta_{1}z_{1} +\beta_{2}z_{2} +\beta_{3}z_{3}$   
+    $\beta_{0} \sim  N(\mu_{i},0.00001)$   
+    $\beta_{j} \sim N(0, \phi) for\ j\ in\ 1:4$  
+    $\sigma = \frac{\sqrt{2}}{\tau}$   
+    $\tau \sim Gamma(1^{-3}, 1^{-3})$  
+    $\phi \sim Gamma(1^{-2}, 1^{-2})$  
+    
+*   Model five:  
+    $y_{i} \sim Double \ exp(\mu_{i}\tau)$  
+    $\mu_{i} = \beta_{0} + \beta_{1}z_{1} +\beta_{2}z_{2} +\beta_{3}z_{3}$  
+    $\beta_{0} \sim  N(\mu_{i},0.00001)$  
+    $\beta_{j} \sim N(0, \phi) for\ j\ in\ 1:4$  
+    $\sigma = \frac{\sqrt{2}}{\tau}$   
+    $\tau \sim Gamma(1^{-3}, 1^{-3})$  
+    $\phi \sim Gamma(1^{-2}, 1^{-2})$  
+    
+*   Model six:  
+    $y_{i} \sim t(\mu_{i}\tau, d)$  
+    $\mu_{i} = \beta_{0} + \beta_{1}z_{1} +\beta_{2}z_{2} +\beta_{3}z_{3}$  
+    $\beta_{0} \sim  N(\mu_{i},0.00001)$  
+    $\beta_{j} \sim N(0, \phi) for\ j\ in\ 1:4$  
+    $\sigma = \sqrt{\frac{d}{\tau*(df-2)}}$  
+    $\tau \sim Gamma(1^{-3}, 1^{-3})$  
+    $\phi \sim Gamma(1^{-2}, 1^{-2})$  
+
+4. Turn in properly formatted output from your regression model.  
+
+```{r, include=FALSE}
+library(R2jags)
+library(stringr)
+library(memisc)
+library(knitr)
+library(kableExtra)
+setwd("~/Documents/UCLA/Winter 2021/biostat234/lab 1/")
+
+#string for alternate model loop and tests
+alt_prior <- c("model100", "model10", "model1", "model.1", "model.01", "model.001")
+alt_prior[1:6]
+precisions <- c("100", "10", "1", ".1", ".01", ".001")
+data_suffix <- ".txt"
+data_dir <- file.path(".")
+data_dir
+dir.exists(data_dir)
+setwd(data_dir)
+getwd()
+## input data and code copied from JAGSLAB1.R
+x     = c(1,2,3,4,5)
+y     = c(1,3,3,3,5)
+N     = 5 
+x.bar = 3
+jags.data = list("x","y","N","x.bar")
+jags.params = c("alpha", "beta", "tau", "sigma")
+jags.inits = function(){
+    list("alpha" = 0, "beta" = 1, "tau" = 1)
+}
+set.seed(1234)
+#sink(str_c(alt_prior[1], data_suffix)) #OK, works
+lab1.sim = jags(jags.data, jags.inits, jags.params, 
+              model.file = "model1.txt", 
+              n.chains = 3, n.iter = 11000, n.burnin = 1000)
+
+tablex<- data.frame(lab1.sim$BUGSoutput$summary[ ,c(1,2,3,7,8)])
+names(tablex)[1]<-"Mean"
+names(tablex)[2]<-"SD"
+names(tablex)[3]<-"2.5%"
+names(tablex)[4]<-"97.5%"
+names(tablex)[5]<-"Rhat"
+tablex
+```
+
+
+```{r, echo=FALSE}
+kable(tablex,
+      booktabs = TRUE,
+      format = "latex",
+      col.names = c("Mean", "SD", "2.5%","97.5%","Rhat"),
+      align = c("l", "c", "c", "c", "c"),
+      caption = "Model Fit for Regression Model 1"
+      ) %>%
+  kable_styling(latex_options="hold_position")
+```
+
+\newpage
+
+5. Change the prior precision for beta to 100, 10, 1, .1, .01, .001. The prior precision is the number 100 in the statement beta ~ dnorm(1,100) in your model program. Run the model for each of these values. What happens to the estimate of beta as the prior precision changes?  
+Estimates for beta increase from around 0.8 to values just under 1, as the prior precision for beta increase in value. 
+
+
+```{r, include=FALSE}
+# Create multiple text files for our alternate prior models
+# Markdown does not like knitting with this for loop so it is commented out
+# for (i in 1:length(alt_prior)) {
+#  writeLines(str_c("i=",i, "; alt prior beta dnorm(1,",precisions[i],")", sep = ""))
+#    sink(str_c(alt_prior[i], data_suffix))
+# cat(str_c("
+#    model
+# {
+# for(i in 1:N){
+# 	y[i] ~ dnorm(mu[i],tau)
+# 	mu[i] <- alpha + beta * (x[i]-x.bar)
+# 	}
+# 	alpha ~ dnorm(0, .0001)
+# 	beta ~ dnorm(1,", precisions[i],")
+# 	tau ~ dgamma(.25,.25)
+#   sigma <- 1/sqrt(tau)
+# }
+#    ",sep=""),fill = TRUE)
+# sink()
+# closeAllConnections()
+# }
+
+## input data and code copied from JAGSLAB1.R
+x     = c(1,2,3,4,5)
+y     = c(1,3,3,3,5)
+N     = 5 
+x.bar = 3
+jags.data = list("x","y","N","x.bar")
+jags.params = c("alpha", "beta", "tau", "sigma")
+jags.inits = function(){
+    list("alpha" = 0, "beta" = 1, "tau" = 1)
+}
+# For loop to run the six models with different beta priors for standard deviations 100, 10, 1, .1, .01, and .001
+getwd()
+set.seed(1234)
+for (v in 1:length(alt_prior)) {
+  simname <- str_c(alt_prior[v])
+  writeLines(str_c("Iteration ",v," for model with sd ",alt_prior[v], sep = ""))
+  
+  lab.sim = jags(jags.data, jags.inits, jags.params, 
+              model.file = str_c(alt_prior[v], data_suffix), 
+              n.chains = 3, n.iter = 11000, n.burnin = 1000)
+  writeLines(str_c("Assigned ",simname," to jags object", sep = ""))
+  assign(simname, lab.sim)
+}
+```
+
+  a. Report an appropriately formatted table of the posterior means and sds as a function of the prior precision. 
+    
+```{r, include=FALSE}
+table_a <- data.frame(
+  model = c("100","10","1",".1",".01",".001"),
+  alpha = c(model100$BUGSoutput$summary[1,1], model10$BUGSoutput$summary[1,1], model1$BUGSoutput$summary[1,1], model.1$BUGSoutput$summary[1,1], model.01$BUGSoutput$summary[1,1], model.001$BUGSoutput$summary[1,1]),
+  sd_alpha = c(model100$BUGSoutput$summary[1,2], model10$BUGSoutput$summary[1,2], model1$BUGSoutput$summary[1,2], model.1$BUGSoutput$summary[1,2], model.01$BUGSoutput$summary[1,2], model.001$BUGSoutput$summary[1,2]),
+  beta = c(model100$BUGSoutput$summary[2,1], model10$BUGSoutput$summary[2,1], model1$BUGSoutput$summary[2,1], model.1$BUGSoutput$summary[2,1], model.01$BUGSoutput$summary[2,1], model.001$BUGSoutput$summary[2,1]),
+  sd_beta = c(model100$BUGSoutput$summary[2,2], model10$BUGSoutput$summary[2,2], model1$BUGSoutput$summary[2,2], model.1$BUGSoutput$summary[2,2], model.01$BUGSoutput$summary[2,2], model.001$BUGSoutput$summary[2,2]),
+  tau = c(model100$BUGSoutput$summary[5,1], model10$BUGSoutput$summary[5,1], model1$BUGSoutput$summary[5,1], model.1$BUGSoutput$summary[5,1], model.01$BUGSoutput$summary[5,1], model.001$BUGSoutput$summary[5,1]),
+  sd_tau = c(model100$BUGSoutput$summary[5,2], model10$BUGSoutput$summary[5,2], model1$BUGSoutput$summary[5,2], model.1$BUGSoutput$summary[5,2], model.01$BUGSoutput$summary[5,2], model.001$BUGSoutput$summary[5,2])
+)
+# 
+# tablez = data.frame(
+#   pbp = c("100", "10", "1", ".1", ".01", ".001"),
+#   esta = c("3.005", "2.995", "3.008", "2.993", "2.998", "3.007"),
+#   sda = c("0.4603", "0.449", "0.482", "0.491", "0.518", "0.532"),
+#   estb = c("0.972", "0.879", "0.822", "0.795", "0.798", "0.786"),
+#   sdb = c("0.096", "0.208", "0.304", "0.354", "0.401", "0.496"),
+#   estt = c("1.835", "`1.811", "1.712", "1.666", "1.690", "1.669"),
+#   sdt = c("1.245", "1.255", "1.265", "1.254", "1.271", "1.311")
+# )
+# tablez
+```
+
+
+```{r, echo=FALSE}
+kable(table_a,
+      booktabs = TRUE,
+      escape = FALSE,
+      col.names = c("Prior Beta Precision", "Est Alpha", "SD Alpha", "Est Beta", "SD Beta", "Est Tau", "SD Tau"),
+      align = c("r", "c", "c", "c", "c", "c", "c"),
+      caption = "Estimates and Standard Deviations of Model Parameters with Prior Beta Precision terms 100:.001"
+      ) %>%
+  kable_styling(latex_options="hold_position")
+```
+    
+  b. As the prior precision goes to +infinity, what do you suppose the limit of the values of the estimate and sd are?  
+If we follow the precision upwards from .001 to 100, it appears that the estimate would come ever closer to 1, with ever decreasing standard deviations. I would assume the limit would be exactly or as near to 1 as possible, and sd approaches 0.
+  
+  c. The least squares estimate of beta is .8. What is the limit of the estimate as the prior precision goes to zero?  
+As the prior precision goes towards 0, I assume the estimate for beta decreases in value but I am not sure to what limits! Towards zero maybe?
