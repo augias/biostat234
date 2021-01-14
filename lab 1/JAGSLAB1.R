@@ -81,7 +81,7 @@ lab1.sim = jags(jags.data, jags.inits, jags.params,
 
 for (i in 1:length(alt_prior)) {
   simname <- str_c(alt_prior[i])
-  writeLines(str_c("Iteration ",i," for model with sd ",alt_prior[i], sep = ""))
+  # writeLines(str_c("Iteration ",i," for model with sd ",alt_prior[i], sep = ""))
   
   lab.sim = jags(jags.data, jags.inits, jags.params, 
                   model.file = str_c(alt_prior[i], data_suffix), 
