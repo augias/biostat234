@@ -1,0 +1,12 @@
+
+model
+{
+for(j in 1:K) 
+      {
+    beta[j]  ~ dnorm( betamean[j] , betaprec[j] )
+              }
+    for(i in 1:T) {
+y[i] ~ dbin(pie[i],n[i])
+                 logit( pie[i] )	<- inprod( x[i,] , beta[] )
+                                 }
+       }

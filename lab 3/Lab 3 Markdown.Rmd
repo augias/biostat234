@@ -1,0 +1,22 @@
+---
+title: "Biostatistics 234: Lab 2"
+author: "Fernando Mora"
+output: pdf_document
+tables: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = '~/Documents/UCLA/Winter 2021/biostat234/lab 2/')
+options(knitr.table.format = "latex")
+```
+
+```{r, include=FALSE}
+library(R2jags)
+library(stringr)
+library(memisc)
+library(knitr)
+library(kableExtra)
+library(lattice)
+library(papaja)
+setwd("~/Documents/UCLA/Winter 2021/biostat234/lab 2/")
+```

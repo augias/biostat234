@@ -90,7 +90,14 @@ for (i in 1:length(alt_prior)) {
   assign(simname, lab.sim)
 }
 
-##
+
+#What about almost zero?
+set.seed(1234)
+lab0.sim = jags(jags.data, jags.inits, jags.params, 
+                model.file = "model.zero.txt", 
+                n.chains = 3, n.iter = 11000, n.burnin = 1000)
+print(lab0.sim)
+
 ## Tools are provided to automatically summarize the results. 
 ## These tools aren't perfect, and we will need to edit/adapt the output
 ## depending on our needs. 

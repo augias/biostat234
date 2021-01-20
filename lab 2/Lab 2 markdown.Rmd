@@ -6,8 +6,8 @@ tables: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = '~/Documents/UCLA/Winter 2021/biostat234/lab 2/')
+options(knitr.table.format = "latex")
 ```
 
 ```{r, include=FALSE}
@@ -16,13 +16,14 @@ library(stringr)
 library(memisc)
 library(knitr)
 library(kableExtra)
+library(lattice)
+library(papaja)
 setwd("~/Documents/UCLA/Winter 2021/biostat234/lab 2/")
 ```
 
 ```{r, include=FALSE}
 #setup code from JAGSLab2.R
 #Plots excluded from this chunk
-
 housing=read.table("housingdata2.txt")
 housing   ## Always look at your data
 ## Anything funny about any of the columns?
@@ -34,37 +35,32 @@ colnames(housing) <- c("cost", "eaves", "windows", "yard", "roof")
 y<-housing[,1]
 x<-as.matrix(housing[,2:5])
 
-## Remember: look at your data.  
-
-## Did you look at the recently defined x and y?  
-
-#Create the model
-
-reg = lm(y~x)
-summary(reg) # classical regression
 # There's a problem, what is it?
 # Why is there a problem?
 
-sink("housingmodel.txt")
-cat("
-model
-{ 
-   for(i in 1:N) {
-	     y[i] ~ dnorm( mu[i] , tau )
-	     mu[i] <- beta0 + inprod(x[i,] , beta[] )
-		}
-	      
-	 beta0 ~ dnorm( mbeta0 , precbeta0)
-	 
-for (j in 1:K) {
-	 beta[j] ~ dnorm( m[j] , prec[j] )
-		}
-	   tau ~ dgamma( tau.a , tau.b )
-	   sigma <- 1 / sqrt( tau )
-	}
-  ",fill = TRUE)
-sink()
-
+# sink("housingmodel.txt")
+# cat("
+# model
+# {
+#    for(i in 1:N) {
+# 	     y[i] ~ dnorm( mu[i] , tau )
+# 	     mu[i] <- beta0 + inprod(x[i,] , beta[] )
+# 		}
+# 
+# 	 beta0 ~ dnorm( mbeta0 , precbeta0)
+# 
+# for (j in 1:K) {
+# 	 beta[j] ~ dnorm( m[j] , prec[j] )
+# 		}
+# 	   tau ~ dgamma( tau.a , tau.b )
+# 	   sigma <- 1 / sqrt( tau )
+# 	   futurefit <- beta0 + beta[1] + beta[2] + beta[3]*2 + beta[4]*2
+# 	   futureobs ~ dnorm(futurefit, tau)
+# 	   futuretail <- beta0 + beta[1] + beta[2] + beta[3]*2 + beta[4]*2 + 1.645*sigma
+# 	   }
+#   ",fill = TRUE)
+# sink()
+# closeAllConnections()
 # This copies the jags program to a file. Please take 
 # the time to understand the model.
 
@@ -90,11 +86,305 @@ inits<-rep(list(list(beta0=0, beta=c(1,1,1,1),tau=1)),5)
 
 #DEFINE PARAMETERS TO MONITOR
 parameters <- c("beta0", "beta" , "tau")
+```
 
+
+```{r, include=FALSE}
 #RUN THE JAGS PROGRAM, SAVING DATA TO LAB2.SIM
 set.seed(1234)
-lab2.sim <- jags (dataA, inits, parameters, "housingmodel.txt", n.chains=5, 
+dataA.sim <- jags (dataA, inits, parameters, "housingmodel.txt", n.chains=5, 
 	n.iter=5100, n.burnin=100, n.thin=1, DIC=FALSE)
 
+dataB.sim <- jags (dataB, inits, parameters, "housingmodel.txt", n.chains=5, 
+	n.iter=5100, n.burnin=100, n.thin=1, DIC=FALSE)
+
+dataC.sim <- jags (dataC, inits, parameters, "housingmodel.txt", n.chains=5, 
+	n.iter=5100, n.burnin=100, n.thin=1, DIC=FALSE)
+
+
 ```
+
+
+
+```{r, include=FALSE}
+#For dataA ####
+print(dataA.sim)
+plot(dataA.sim)
+tempA=dataA.sim$BUGSoutput$sims.matrix
+head(tempA)
+interceptbeta.A = tempA[,5]
+eavesbeta.A = tempA[,1]
+windowsbeta.A = tempA[,2]
+yardbeta.A = tempA[,3]
+roofbeta.A = tempA[,4]
+tau.A = tempA[,6]
+plot(acf(interceptbeta.A))
+plot(acf(tau.A))
+
+length(interceptbeta.A)
+plot(interceptbeta.A, type="l")	#Trace Plot		
+plot(acf(eavesbeta.A))		#Autocorrelation plot
+plot(density(yardbeta.A))	#	Density plot
+plot(interceptbeta.A,yardbeta.A)		#Single correlation plot of beta0 v 1
+splom(tempA[1:5000,1:5],pch=".")	#	Scatterplot matrix of correlation plots
+          # 25000 takes a long time. "." is a better character to plot with
+mean(eavesbeta.A)
+sd(eavesbeta.A)
+length(eavesbeta.A[eavesbeta.A>0])/length(eavesbeta.A)
+apply(tempA, 2, mean)			#apply command is very handy and worth knowing.
+apply(tempA, 2, sd)
+apply(tempA, 2, quantile, c(.025,.975))
+
+# Extra.  
+# We can define our own summary measures
+
+mysummaryA = function(invector) {
+c(mean(invector), sd(invector), quantile(invector, .025), quantile(invector,.975),
+	length(invector[invector>0])/length(invector))
+}
+apply(tempA, 2, mysummaryA)
+
+# I use this function often.
+t(round(apply(tempA, 2, mysummaryA),2))
+tableA <- data.frame(t(round(apply(tempA, 2, mysummaryA),2)))
+tableA
+```
+
+
+```{r, include=FALSE}
+#For dataB ####
+print(dataB.sim)
+plot(dataB.sim)
+tempB=dataB.sim$BUGSoutput$sims.matrix
+head(tempB)
+interceptbeta.B = tempB[,5]
+eavesbeta.B = tempB[,1]
+windowsbeta.B = tempB[,2]
+yardbeta.B = tempB[,3]
+roofbeta.B = tempB[,4]
+tau.B = tempB[,6]
+plot(acf(interceptbeta.B))
+plot(acf(tau.B))
+
+length(interceptbeta.B)
+plot(interceptbeta.B, type="l")	#Trace Plot		
+plot(acf(eavesbeta.B))		#Autocorrelation plot
+plot(density(yardbeta.B))	#	Density plot
+plot(interceptbeta.B,yardbeta.B)		#Single correlation plot of beta0 v 1
+splom(tempB[1:5000,1:5],pch=".")	#	Scatterplot matrix of correlation plots
+          # 25000 takes a long time. "." is a better character to plot with
+mean(eavesbeta.B)
+sd(eavesbeta.B)
+length(eavesbeta.B[eavesbeta.B>0])/length(eavesbeta.B)
+apply(tempB, 2, mean)			#apply command is very handy and worth knowing.
+apply(tempB, 2, sd)
+apply(tempB, 2, quantile, c(.025,.975))
+
+# Extra.  
+# We can define our own summary measures
+
+mysummaryB = function(invector) {
+c(mean(invector), sd(invector), quantile(invector, .025), quantile(invector,.975),
+	length(invector[invector>0])/length(invector))
+}
+apply(tempB, 2, mysummaryB)
+
+# I use this function often.
+t(round(apply(tempB, 2, mysummaryB),2))
+tableB <- data.frame(t(round(apply(tempB, 2, mysummaryB),2)))
+tableB
+```
+
+
+```{r, include=FALSE}
+#For dataC ####
+print(dataC.sim)
+plot(dataC.sim)
+tempC=dataC.sim$BUGSoutput$sims.matrix
+head(tempC)
+interceptbeta.C = tempC[,5]
+eavesbeta.C = tempC[,1]
+windowsbeta.C = tempC[,2]
+yardbeta.C = tempC[,3]
+roofbeta.C = tempC[,4]
+tau.C = tempC[,6]
+plot(acf(interceptbeta.C))
+plot(acf(tau.C))
+
+length(interceptbeta.C)
+plot(interceptbeta.C, type="l")	#Trace Plot		
+plot(acf(eavesbeta.C))		#Autocorrelation plot
+plot(density(yardbeta.C))	#	Density plot
+plot(interceptbeta.C,yardbeta.C)		#Single correlation plot of beta0 v 1
+splom(tempC[1:5000,1:5],pch=".")	#	Scatterplot matrix of correlation plots
+          # 25000 takes a long time. "." is a better character to plot with
+mean(eavesbeta.C)
+sd(eavesbeta.C)
+length(eavesbeta.C[eavesbeta.C>0])/length(eavesbeta.C)
+apply(tempC, 2, mean)			#apply command is very handy and worth knowing.
+apply(tempC, 2, sd)
+apply(tempC, 2, quantile, c(.025,.975))
+
+# Extra.  
+# We can define our own summary measures
+
+mysummaryC = function(invector) {
+c(mean(invector), sd(invector), quantile(invector, .025), quantile(invector,.975),
+	length(invector[invector>0])/length(invector))
+}
+apply(tempC, 2, mysummaryC)
+
+# I use this function often.
+t(round(apply(tempC, 2, mysummaryC),2))
+
+tableC <- data.frame(t(round(apply(tempC, 2, mysummaryC),2)))
+tableC
+tableC[4,2]
+
+```
+
+1. Summarize briefly the effects on all parameters of changing from prior A to B to C. (Briefly = one sentence total; two only if really necessary).  
+Parameters for betas 0 through 3 tended to increase in absolute value as prior precision terms decreased, while the Roof coefficient actually decreased.
+
+```{r, include=FALSE}
+tableA
+tableB
+tableC
+```
+
+2. Give a table of inferences for the coefficient of roofs for the three priors. Briefly explain why it comes out as it does.  
+In table 1 below, we see how the estimated coefficient mean for Roof decreases as our prior precision increases from models A to C. This is attributable to the strong co-linearity of Roof and Intercept, a weaker prior precision seems to underestimate the influence of the state of the Roof on the posterior distribution. 
+
+```{r, include=FALSE}
+table2 <- data.frame(
+  model = c("mean","sd","2.5%","97.5%","p"),
+  A = c(tableA[4,1],tableA[4,2],tableA[4,3],tableA[4,4],tableA[4,5]),
+  B = c(tableB[4,1],tableB[4,2],tableB[4,3],tableB[4,4],tableB[4,5]),
+  C = c(tableC[4,1],tableC[4,2],tableC[4,3],tableC[4,4],tableC[4,5])
+)
+table2
+```
+
+
+```{r, echo=FALSE}
+apa_table(table2,
+          placement = "h",
+          caption = "Estimates and Standard Deviations of Roof Coefficients for 3 Prior Models",
+          col.names = c("Model prior", "A", "B", "C"),
+          align = c("r","c","c","c"))
+```
+
+
+3. For one of the three priors:  
+
+  a. Show summaries of the futurefit, futureobs, futuretail in a properly formatted table for the house in perfect condition.  
+  
+```{r, include=FALSE}
+inits<-rep(list(list(beta0=0, beta=c(1,1,1,1),tau=1, futureobs=10)),5)
+parameters <- c("beta0", "beta" , "tau", "sigma", "futurefit", "futureobs", "futuretail")
+set.seed(1234)
+data3a.sim <- jags (dataA, inits, parameters, "housingmodel.txt", n.chains=5, 
+	n.iter=5100, n.burnin=100, n.thin=1, DIC=FALSE)
+
+temp3a=data3a.sim$BUGSoutput$sims.matrix
+head(temp3a)
+futurefit.A = temp3a[,6]
+futureobs.A = temp3a[,7]
+futuretail.A = temp3a[,8]
+
+mean(futurefit.A)
+sd(futurefit.A)
+
+mysummary3a = function(invector) {
+c(mean(invector), sd(invector), quantile(invector, .025), quantile(invector,.975),
+	length(invector[invector>0])/length(invector))
+}
+apply(temp3a, 2, mysummary3a)
+
+# I use this function often.
+t(round(apply(temp3a, 2, mysummary3a),2))
+table3a <- data.frame(t(round(apply(temp3a, 2, mysummary3a),2)))
+table3a
+table3a <- table3a[6:8, ]
+```
+
+
+```{r, echo=FALSE}
+apa_table(table3a,
+          placement = "h",
+          caption = "Summary of Paramters for Home in Perfect Condition",
+          col.names = c("Parameter", "Mean", "SD", "2.5", "97.5", "p>0"),
+          align = c("l","c","c","c","c","c"))
+```
+
+\newpage
+
+  
+  b. Which house is in the worst condition? Calculate the three futurefit, futureobs and futuretail variables for this house and provide a formatted table.  
+  
+```{r, include=FALSE}
+inits2<-rep(list(list(beta0=0, beta=c(1,1,1,1), tau=1, futureobs=10)),5)
+parameters <- c("beta0", "beta" , "tau", "sigma", "futurefit", "futureobs", "futuretail")
+
+set.seed(1234)
+data3b.sim <- jags (dataA, inits2, parameters, "housingmodel3b.txt", n.chains=5,
+	n.iter=5100, n.burnin=100, n.thin=1, DIC=FALSE)
+
+print(data3b.sim)
+print(data3a.sim) #same, not there yet. wait for ben's reply
+
+temp3b=data3b.sim$BUGSoutput$sims.matrix
+head(temp3b)
+futurefit.B = temp3b[,6]
+futureobs.B = temp3b[,7]
+futuretail.B = temp3b[,8]
+
+mean(futurefit.B)
+sd(futurefit.B)
+
+mysummary3b = function(invector) {
+c(mean(invector), sd(invector), quantile(invector, .025), quantile(invector,.975),
+	length(invector[invector>0])/length(invector))
+}
+apply(temp3b, 2, mysummary3b)
+
+# I use this function often.
+t(round(apply(temp3b, 2, mysummary3b),2))
+table3b <- data.frame(t(round(apply(temp3b, 2, mysummary3b),2)))
+table3b
+table3b <- table3b[6:8, ]
+
+
+```
+
+```{r, echo=FALSE}
+apa_table(table3b,
+          placement = "h",
+          caption = "Summary of Paramters for Home in Worst Condition",
+          col.names = c("Parameter", "Mean", "SD", "2.5", "97.5", "p>0"),
+          align = c("l","c","c","c","c","c"),
+          escape = FALSE)
+```
+  
+  
+4. For prior (C), what two coefficients (including the intercept) have the highest posterior correlation? Briefly explain why.   
+The Intercept `beta0` and the `Roof` parameter using prior C had an extremely sharp correlation on a scatterplot, with a correlation coefficient of -0.98. I'd assume the weak prior precision term affects the weight given to beta4 such that the unchanging value of the beta4 vector begins to correlate strongly with the mean.  
+```{r, include=FALSE}
+splom(tempC[1:5000,1:5],pch=".")	#	Scatterplot matrix of correlation plots
+tempC
+cor(tempC[ ,4],tempC[ ,5])
+```
+
+
+5. Briefly interpret the three variables futurefit, futureobs, futuretail in your own words.   
+`Futurefit` would provide us with the hypothetical cost, in thousands of dollars, to update or repair a home that had some specified scores on the house rating instrument. `Futureobs` would be a predictive distribution of the mean predicted cost of futurefit, with a wider variance. `Futuretail` is the 95th percentage point of the cumulative distribution function, or the value at which we might lose confidence in our estimate for `futuretail.`
+
+6. Suppose we pool the two data sets after the inflation correction. Also, the expert at the housing department told you he thought each unit increase in any rating scale ought to increase the cost by around $1000. You’re not sure that all coefficients should be positive. Suggest priors (all regression coefficients and for sigma^2) to use now. Write one or two sentences justifying your priors.   
+Possibe priors for such a model might look like:  
+    $y_{i} \sim No(\mu_{i},\tau)$  
+    $\mu_{i} = \beta_{0} + \beta_{1}x_{1} +\beta_{2}x_{2} +\beta_{3}x_{3} +\beta_{4}x_{4}$   
+    $\beta_{j} \sim N(\mu=1, \sigma^2=1) for\ j\ in\ 1:4$   
+    $\tau \sim Gamma(2, 0.5)$  
+    $\sigma = \frac{1}{\sqrt{\tau}}$  
+Where I assume a continuous normal density for outcome `y`, specifying our regression model for $\mu_{i}$ and a precision term $\tau$. The $\beta$ coefficients according to our expert would equal one in our data, and I chose a wide standard deviation $\sigma$ = 1, which would also equal one for $\sigma^2$. For tau's shape $\alpha$ and scale $\beta$, I relied on the gamma distribution information on wikipedia, and chose a properly conservative density where $\alpha=2$ and $\beta=2$. Thus, variance was $\frac{\alpha}{\beta^2} = \frac{2}{2^2}=0.5$
 

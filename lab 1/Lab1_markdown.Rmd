@@ -222,4 +222,4 @@ kable(table_a,
 If we follow the precision upwards from .001 to 100, it appears that the estimate would come ever closer to 1, with ever decreasing standard deviations. I would assume the limit would be exactly or as near to 1 as possible, and sd approaches 0.
   
   c. The least squares estimate of beta is .8. What is the limit of the estimate as the prior precision goes to zero?  
-As the prior precision goes towards 0, I assume the estimate for beta decreases in value but I am not sure to what limits! Towards zero maybe?
+As the prior precision goes towards 0, the estimate for beta centers itself nearest the Least Squares estimate for beta, 0.8.
