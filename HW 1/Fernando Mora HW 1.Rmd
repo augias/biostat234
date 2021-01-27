@@ -1,0 +1,274 @@
+---
+title: "Biostatistics 234: Homework 1"
+author: "Fernando Mora"
+output: pdf_document
+tables: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = '~/Documents/UCLA/Winter 2021/biostat234/HW 1/')
+options(knitr.table.format = "latex")
+```
+
+```{r, include=FALSE}
+library(R2jags)
+library(stringr)
+library(memisc)
+library(knitr)
+library(kableExtra)
+library(lattice)
+library(papaja)
+setwd("~/Documents/UCLA/Winter 2021/biostat234/HW 1/")
+```
+#### Problem 1: Normal Data with a Normal Prior
+
+1. My measurement is the daily amount of table salt used in my household. I measured a small glass bowl of sea salt every morning before breakfast for 8 days, and recorded the difference in weight in grams.
+
+```{r, echo=TRUE, results='hide'}
+x <- c(9, 8, 4, 0, 8, 8, 1, 11)
+```
+
+
+2. I usually measure out salt in grams when cooking pizza, so based on what a teaspoon looks like, I assumed I might use about 7 grams of salt per day. Given days we don't cook, or cook a lot, this could be 5 grams more or five grams less, so the standard deviation prior will be 5. My prior mean distribution would thus be $\mu_0 \sim N(7,5)$. 
+
+3. 
+```{r, include=FALSE}
+mean(x)
+N=8
+x.bar=7
+day <- c('Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed')
+data <- data.frame(x)
+data <- t(data)
+data <- cbind(data, mean(x), var(x))
+
+data
+```
+
+
+```{r, echo=FALSE}
+kable(data,
+      booktabs = TRUE,
+      format = "latex",
+      col.names = c('Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Mean', 'Variance'),
+      caption = "Daily Salt Use in Grams",
+      row.names = F) %>%
+  kable_styling(latex_options="hold_position")
+```
+
+4. I decided to set my sampling standard deviation based on the observed s.d., which was `r round(sd(x), 2)`
+
+5. $\bar\mu=\frac{\frac{8}{3.98^2}}{\frac{8}{3.98^2}+\frac{1}{5^2}}6.125+\frac{\frac{1}{5^2}}{\frac{8}{3.98^2}+\frac{1}{5^2}}3.98=5.97$.  
+
+$var(\mu|data)=(\frac{8}{3.98^2}+\frac{1}{5^2})^-1=1.83$.   
+
+$sd(\mu|data)|=1.35$
+
+
+```{r, include=FALSE}
+n.over.sd2 <- N/(sd(x)^2)
+one.over.t2 <- 1/(5^2)
+
+(n.over.sd2/(n.over.sd2+one.over.t2))*mean(x)+(one.over.t2/(n.over.sd2+one.over.t2))*sd(x)
+
+(n.over.sd2+one.over.t2)^-1
+
+#predictive prior sd and tau
+pvar <- 3.98^2+5^2
+lvar <- 6.13/N
+```
+7.
+```{r, include=FALSE}
+table7 <- data.frame(c(5.97,round(sqrt(1.83),2),1.83),c(7,5,5^2),c(7,round(sqrt(pvar),2),40.84),c(6.13,round(sqrt(lvar),),0.77))
+table7
+
+table7<-t(table7)
+rownames(table7) <- c('Posterior', 'Prior', 'Prior Predictive', 'Likelihood')
+
+table7<-round(table7, 2)
+table7
+```
+```{r, echo=FALSE}
+kable(table7,
+      booktabs = TRUE,
+      format = "latex",
+      col.names = c('Mean', 'sd', 'Variance'),
+      caption = "Summary of Posterior, prior, predictive, and likelihood densities",
+      align = c("r", "c", "c", "c"),
+      digits=2) %>%
+  kable_styling(latex_options="hold_position") #It shows 1 instead of .88 wtf
+```
+
+\newpage
+  
+8. The plot of our four densities shows that the posterior estimate and the likelihood function are more accurate in terms of variance in the distribution of observations. Interestingly, to me, the likelihood function had the smallest overall variance and the shortest tails, due to my very generous prior specification for variance. The prior and prior predictive distributions had enormously wide tails and low certainty around the mean estimate.   
+```{r, echo=FALSE}
+set.seed(1234)
+xsim <- seq(0,15,0.1)
+postdensity <- dnorm(xsim, 5.97, 1.35)
+priordensity <- dnorm(xsim, 7, 5)
+priorpredictive <- dnorm(xsim, 7, 6.39)
+likelihood <- dnorm(xsim, 6.13, 0.88)
+dists <- c("Posterior", "Prior", "Predictive Prior", "Likelihood")
+matplot(x = xsim,
+        y = cbind(postdensity,priordensity,priorpredictive,likelihood),
+        type = "l",
+        col = c("red", "blue", "seagreen", "black"),
+        lty = 1,
+        xlab = "grams of salt",
+        xaxp = c(0,15,5),
+        ylab = "densities",
+        main = "Plot of Posterior, prior, predictive, and likelihood densities")
+legend(x = "topright",
+       legend = paste(dists[1:4]),
+       col = c("red", "blue", "seagreen", "black"),
+       lty = 1)
+
+# From https://community.rstudio.com/t/how-to-plot-overlapped-normal-distribution-curves-in-r-preferably-in-ggplot/35172/2
+
+```
+
+
+#### Problem 2: Count Data with a Gamma Prior
+
+1. The support for the prior and sampling densities would entail a Poisson distribution, so its support $k$ will be $k\in \mathbb{N}_o$, or any positive natural number, starting at zero. For the Gamma distribution as conjugate prior and posterior, the support will be $k\in (0, \infty)$, or any number from zero to infinity. Really not clear about support for the likelihood! If it is to estimate the probability of our estimate being 0, then $k\in0<x<1$?  
+
+2. The parameter $b$ will act like a prior sample size, because it can be used as the denominator of the distribution mean $\frac{a}{b}$, which makes me think of $n$ in terms of arithmetic mean.
+
+3. ...
+
+4. To avoid unnecessary risk of infection, I did not go to Ralph's, but instead decided to count the number of daily emails sent from our director of student services every weekday. The 5 observations will be Monday-Friday from January 11 to January 15.
+
+5. Priors
+  + 5a) I will guess $\mu_0=7$; the average number of emails Amy sends daily.
+  + 5b) Prior $s_0=5$; the stadard deviation of emails Amy sends in a day. 
+  + 5c) I will guess $n_0=1/5$, that my prior estimate for $mu_0$ would need 5 actual observations before $\bar{y}$ looked like my guess.
+  + 5d) Assuming $7=a/b$ and $5^2=a/b^2$: $a_1=49/25=1.96$. $b_1=7/25=0.28$.
+  + 5e) Assuming $7=a/b$ and $b=1/5$: $a_2=7/5=1.4$. $b_2=1/5=0.2$.  
+
+6. Since we saw above we can estimate priors $(a,b)$ with a guess for mean and standard deviation, or altenratively mean and sample size, we could set prior based on our best guess as to the expected mean and its variance, or we can set it with our guess of the mean value and our guess as to the $k$ worth of our prior relative to the number of observations.
+
+7.
+```{r, include=FALSE}
+emails <- c(8,3,2,7,6)
+n=5
+dayz <- c('Mon', 'Tue', 'Wed', 'Thu', 'Fri')
+data2 <- data.frame(emails)
+data2 <- t(data2)
+data2 <- cbind(data2, sum(emails), mean(emails), var(emails))
+
+data2
+```
+
+
+```{r, echo=FALSE}
+kable(data2,
+      booktabs = TRUE,
+      format = "latex",
+      col.names = c('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sum', 'Mean', 'Variance'),
+      caption = "Daily Emails from OSS",
+      row.names = F) %>%
+  kable_styling(latex_options="hold_position")
+```
+
+8a. Posterior one:   
+$Gamma(1.96+26,0.28+5)$
+
+8b. Posterior two:  
+$Gamma(1.4+26,0.2+5)$
+
+9a. $\bar\mu|Y=5.3$, $sd(\bar\mu|data)=2.23$
+
+9b. $\bar\mu|Y=5.27$, $sd(\bar\mu|data)=2.28$
+
+```{r, include=FALSE}
+a1<- 1.96
+b1<- 0.28
+a1/b1
+sqrt(a1/b1^2)
+dgamma(emails, shape = a1, rate = b1, log=FALSE)
+dgamma(emails, shape = a1+26, b1+5, log = FALSE)
+
+a2<- 1.4
+b2<- 0.2
+a2/b2
+sqrt(a2/b2^2)
+dgamma(emails, shape = a2, rate = b2, log=FALSE)
+dgamma(emails, shape = a2+26, rate = b2+5, log=FALSE)
+```
+\newpage
+10a. Prior density 1 had a lower rate than prior 2 (5 vs. 7, respectively) which made the height of the second density appear left-skewed or closer to 0.  
+```{r, echo=FALSE}
+set.seed(1234)
+esim <- seq(0,10,0.1)
+prior.gamma.1 <- dgamma(esim, shape = a1, rate = b1, log=FALSE)
+prior.gamma.2 <- dgamma(esim, shape = a2, rate = b2, log=FALSE)
+dists <- c("Prior 1", "Prior2")
+matplot(x = esim,
+        y = cbind(prior.gamma.1, prior.gamma.2),
+        type = "l",
+        col = c("red", "blue"),
+        lty = 1,
+        xlab = "Daily Emails from OSS",
+        ylab = "densities",
+        main = "Plot of prior densities")
+legend(x = "topright",
+       legend = paste(dists[1:2]),
+       col = c("red", "blue"),
+       lty = 1)
+```
+\newpage
+10b. The posterior means were only different by a few hundredths of a decimal, and their standard deviations were both virtually equal by a few thousands of a decimal, so their densities overlap even more closely and look like a nicely normal density.  
+```{r, echo=FALSE}
+post.gamma.1 <- dgamma(esim, shape = a1+26, b1+5, log = FALSE)
+post.gamma.2 <- dgamma(esim, shape = a2+26, b2+5, log = FALSE)
+dists <- c("Posterior 1", "Posterior 2")
+matplot(x = esim,
+        y = cbind(post.gamma.1, post.gamma.2),
+        type = "l",
+        col = c("seagreen", "black"),
+        lty = 1,
+        xlab = "Daily Emails from OSS",
+        ylab = "densities",
+        main = "Plot of posterior densities")
+legend(x = "topright",
+       legend = paste(dists[1:2]),
+       col = c("seagreen", "black"),
+       lty = 1)
+```
+\newpage
+
+11a. The posterior density has much smaller tails than its prior, and a sharply taller height density around $\bar\mu$.
+```{r, echo=FALSE}
+
+dists <- c("Prior 1", "Posterior 1")
+matplot(x = esim,
+        y = cbind(prior.gamma.1, post.gamma.1),
+        type = "l",
+        col = c("red", "seagreen"),
+        lty = 1,
+        xlab = "Daily Emails from OSS",
+        ylab = "densities",
+        main = "Plot of prior 1 and posterior 1")
+legend(x = "topright",
+       legend = paste(dists[1:2]),
+       col = c("red", "seagreen"),
+       lty = 1)
+```
+
+\newpage
+11b. The same can be said here, where the second posterior density has a much higher density around $\bar\mu$, and much smaller tails than its corresponding prior, and no more apparent skewness. 
+```{r, echo=FALSE}
+dists <- c("Prior 2", "Posterior 2")
+matplot(x = esim,
+        y = cbind(prior.gamma.2, post.gamma.2),
+        type = "l",
+        col = c("blue", "black"),
+        lty = 1,
+        xlab = "Daily Emails from OSS",
+        ylab = "densities",
+        main = "Plot of prior 2 and posterior 2")
+legend(x = "topright",
+       legend = paste(dists[1:2]),
+       col = c("blue", "black"),
+       lty = 1)
+```

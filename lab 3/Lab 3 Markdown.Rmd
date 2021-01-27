@@ -1,12 +1,15 @@
 ---
-title: "Biostatistics 234: Lab 2"
+title: "Biostatistics 234: Lab 3"
 author: "Fernando Mora"
-output: pdf_document
+output: 
+  pdf_document: 
+    latex_engine: xelatex
+    keep_tex: yes
 tables: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_knit$set(root.dir = '~/Documents/UCLA/Winter 2021/biostat234/lab 2/')
+knitr::opts_knit$set(root.dir = '~/Documents/UCLA/Winter 2021/biostat234/lab 3/')
 options(knitr.table.format = "latex")
 ```
 
@@ -18,5 +21,235 @@ library(knitr)
 library(kableExtra)
 library(lattice)
 library(papaja)
-setwd("~/Documents/UCLA/Winter 2021/biostat234/lab 2/")
+library(stargazer)
 ```
+
+```{r, include=FALSE}
+# To Do For Lab 3
+# 
+# 1 Run jags to get 50000 samples. Get plots of the priors and posteriors, and get autocorrelation plots. 
+# 
+# 2 Compare output for 3 different runs: (i) prior (no data), (ii) partial data (T=100) posterior and then (iii) with the full data (T=300). 
+#   a. Compare all estimates and standard deviations in a table. [Given that you have three runs to compare, you’ll not want to have as many summaries of the posteriors as if you were doing a table of a single model. Think about how to best arrange the numbers in the table.]
+#   b. Draw plots with three densities for each coefficient. The plot should show the prior density, the partial data posterior and full data posteriors. Label appropriately. 
+# 
+# 3 Extra credit 1: add code to calculate the probability that someone with Xs of 
+# 1	2	7.55	25	0	0
+# 1	11	7.8408	42	1	42
+# 1	16	7.8408	80	1	80
+# 	will die. 
+# 
+# 
+# 4 The model tracks the parameters π1 to π6, what is the interpretation of these parameters once the data has been incorporated?
+```
+
+```{r, include=FALSE}
+#Setup code from Lab3JAGS.R
+
+load("AddBurnin.RData")
+
+
+# useful function
+mysummary = function(invector) {
+c(mean(invector), sd(invector), quantile(invector, .025), 
+	quantile(invector,.975),
+	length(invector[invector>0])/length(invector))
+}
+
+
+# Save the data file TraumaData.txt to your working directory. 
+
+#load in the data 
+
+TraumaData = read.table("bcj97data.txt")
+
+#Give the columns useful names 
+colnames(TraumaData) <- c("death", "n",	"intercept",	"iss",	"rts", "age", "ti", "age*ti")
+
+#first 6 observations from proto-typical cases 
+head(TraumaData, n=6)
+
+#First we divide up the dataset into the 6 proto-typical cases and the observed data
+
+#For the 6 proto-typical cases define Xp the design matrix, Yp the outcomes (death=1), and np the number of trials
+Xp = as.matrix(TraumaData[1:6,3:8])
+Xp
+Yp = TraumaData[1:6,1]
+Yp
+np = TraumaData[1:6,2]
+np
+
+#note a=Yp+1 and b=np-a+2 in the corresponding beta distributions 
+
+#define the inverse of the Xp matrix to be used to convert the prior distributions on pi to distributions on the regression coefficients
+invXp = solve(Xp)
+invXp
+
+#For the observed data define the design matrix, outcomes, and number of trials
+
+Xobs = as.matrix(TraumaData[7:306,3:8])
+Yobs = TraumaData[7:306,1]
+nobs = TraumaData[7:306,2]
+```
+
+1. At what lags do the autocorrelations hit zero for the 6 regression coefficients? Are the beta autocorrelations better or worse than the 6 pi’s?  
+For the 6 regression coefficients, up to the 40th lag, the autocorrelation never really settled at 0 except beta4. Most petered out at 0.2 or below. They still fare better than our pi autocorrelation plots, where many autocorrelation coefficients were well above those we saw for beta coefficients. If I fiddled with the `lag.max` setting for `acf()`, I might venture that acf reaches zero at around 150 lags, but I have no idea if this is a sane thing to do.
+
+```{r, include=FALSE}
+load(file = "output1.RData")
+load(file = "output2.RData")
+load(file = "output3.RData")
+
+temp1=Output1$Burnin.sims.matrix
+temp2=Output2$Burnin.sims.matrix
+temp3=Output3$Burnin.sims.matrix
+
+apply(temp1, 2, mysummary)
+
+# Itable up the matrix for prior.
+t(round(apply(temp1, 2, mysummary),2))
+table1 <- data.frame(t(round(apply(temp1, 2, mysummary),2)))
+table1
+
+table1[1:6,1]
+means1<-table1[1:6,1]
+sd1<-table1[1:6,2]
+
+# For posterior n=300
+t(round(apply(temp2, 2, mysummary),2))
+table2 <- data.frame(t(round(apply(temp2, 2, mysummary),2)))
+table2
+
+means2<-table2[1:6,1]
+sd2<-table2[1:6,2]
+
+#For posterior n=100
+t(round(apply(temp3, 2, mysummary),2))
+table3 <- data.frame(t(round(apply(temp3, 2, mysummary),2)))
+table3
+
+means3<-table3[1:6,1]
+sd3<-table3[1:6,2]
+
+
+table4 <- data.frame(
+  model <- c('beta1', 'beta2', 'beta3', 'beta4', 'beta5', 'beta6'),
+  priormeans <- means1,
+  priorsd <- sd1,
+  mean100 <- means3,
+  sd100 <- sd3,
+  mean300 <- means2,
+  sd300 <- sd2
+)
+
+table4
+```
+
+
+
+2. Turn in your properly formatted table of output for the full data set, and turn in a set of the 6 plots of the prior and posterior for the betas.   
+```{r, echo=FALSE}
+apa_table(Output3$Burnin.Summary,
+          placement = "h",
+          caption = "Posterior Distribution of Beta Coefficients and Pi for Full Data Set",
+          col.names = c("Beta Coefficient", "Mean", "SD", "2.5 pct", "97.5 pct", "P>0"),
+          align = c("r","c","c","c","c","c","c"))
+
+par(mfrow=c(2,3))
+# beta1
+plot(density(temp2[,1]),xlim=c(-20,20),main="",xlab="beta1")  
+lines(density(temp1[,1]), col="blue")
+legend(x="topright", col=c("black", "blue"), lty=1, legend=c("post.","prior"), bty = "n")
+# beta2
+plot(density(temp2[,2]),xlim=c(-.2,.2),main="",xlab="beta2")  
+lines(density(temp1[,2]), col="blue")  
+# beta3
+plot(density(temp2[,3]),xlim=c(-1,.2),main="",xlab="beta3")  
+lines(density(temp1[,3]), col="blue")  
+# beta4
+plot(density(temp2[,4]),xlim=c(-.1,.1),main="",xlab="beta4")  
+lines(density(temp1[,4]), col="blue")
+# beta5
+plot(density(temp2[,5]),xlim=c(-4,5),main="",xlab="beta5")  
+lines(density(temp1[,5]), col="blue")
+# beta6
+plot(density(temp2[,6]),xlim=c(-.15,.1),main="",xlab="beta6")  
+lines(density(temp1[,6]), col="blue")
+```
+
+
+3a.  
+
+```{r, echo=FALSE}
+apa_table(table4,
+          placement = "h",
+          caption = "Estimates and Standard Deviations of Coefficients in Prior Model and Posterior Models with n=100 and n=300.",
+          col.names = c("Beta Coefficient", "Prior mean", "Prior SD", "Mean|n=100", "SD|n=100", "Mean|n=300", "SD|n=300"),
+          align = c("r","c","c","c","c","c","c"))
+```
+
+\newpage
+3b.  
+
+```{r, echo=FALSE}
+par(mfrow=c(2,3))
+# beta1
+plot(density(temp2[,1]),xlim=c(-20,20),main="",xlab="beta1")  
+lines(density(temp1[,1]), col="blue")  
+lines(density(temp3[,1]), col="seagreen")
+legend(x="topright", col=c("black", "blue", "seagreen"), lty=1, legend=c("post.","prior","partial"), bty = "n")
+# beta2
+plot(density(temp2[,2]),xlim=c(-.2,.2),main="",xlab="beta2")  
+lines(density(temp1[,2]), col="blue")  
+lines(density(temp3[,2]), col="seagreen")
+# beta3
+plot(density(temp2[,3]),xlim=c(-1,.2),main="",xlab="beta3")  
+lines(density(temp1[,3]), col="blue")  
+lines(density(temp3[,3]), col="seagreen")
+# beta4
+plot(density(temp2[,4]),xlim=c(-.1,.1),main="",xlab="beta4")  
+lines(density(temp1[,4]), col="blue")  
+lines(density(temp3[,4]), col="seagreen")
+# beta5
+plot(density(temp2[,5]),xlim=c(-4,5),main="",xlab="beta5")  
+lines(density(temp1[,5]), col="blue")  
+lines(density(temp3[,5]), col="seagreen")
+# beta6
+plot(density(temp2[,6]),xlim=c(-.15,.1),main="",xlab="beta6")  
+lines(density(temp1[,6]), col="blue")  
+lines(density(temp3[,6]), col="seagreen")
+```
+
+
+4. The model tracks the parameters π1 to π6, what is the interpretation of these parameters once the data has been incorporated?  
+The parameters $\pi_{1:6}$ in the model represent the probability of death for the 6 hypothetical cases elicited from Dr. Osler. Once the data has been incorporated, the updated values for $\pi_i$ represent the posterior estimated mean probability of death for these six cases, with slightly larger variance.
+
+5. Extra credit: you may (but don’t need to) Turn in your answer to TODO step 3.  
+An attempt was made! I added three lines to predict hypothetical observaitons by adding `	futurepie1 <- ilogit(betas[1] + betas[2]*2 + betas[3]*7.55 + betas[4]*25 + betas[5]*0 + betas[6]*0)` and so forth in three lines after defining the inverse logit regression's closed brackets. I managed to get Jags to run, incredibly.  
+The table below shows the posterior estimates for the three cases, where the posterior probability (or do I say inverse log odds? I'm not used speaking about logistic regression) of death for case 1 = 1%, case 2 = 4%, and case 3 = 18%.
+
+```{r, include=FALSE}
+load(file = "Output4.RData")
+temp4=Output4$Burnin.sims.matrix
+
+apply(temp4, 2, mysummary)
+
+# I use this function often.
+t(round(apply(temp4, 2, mysummary),2))
+table5 <- data.frame(t(round(apply(temp4, 2, mysummary),2)))
+table5
+table5[7:9,]
+
+
+```
+
+
+```{r, echo=FALSE}
+apa_table(table5[7:9,],
+          placement = "h",
+          caption = "Summary of Paramters for Hypothetical Observations",
+          col.names = c("Parameter", "Mean", "SD", "2.5", "97.5", "p>0"),
+          align = c("l","c","c","c","c","c"))
+        
+```
+

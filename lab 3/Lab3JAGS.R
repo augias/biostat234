@@ -33,13 +33,17 @@ head(TraumaData, n=6)
 
 #For the 6 proto-typical cases define Xp the design matrix, Yp the outcomes (death=1), and np the number of trials
 Xp = as.matrix(TraumaData[1:6,3:8])
+Xp
 Yp = TraumaData[1:6,1]
+Yp
 np = TraumaData[1:6,2]
+np
 
 #note a=Yp+1 and b=np-a+2 in the corresponding beta distributions 
 
 #define the inverse of the Xp matrix to be used to convert the prior distributions on pi to distributions on the regression coefficients
 invXp = solve(Xp)
+invXp
 
 #For the observed data define the design matrix, outcomes, and number of trials
 
@@ -123,14 +127,13 @@ model{
 sink()
 
 #fit the model
-
 ex2.data = list(x=Xobs, y=Yobs, T=300, invXp=invXp)
 ex2.inits = rep(list(list(pie=c(0.5,0.5,0.5,0.5,0.5,0.5))),5)
 ex2.parameters = c("betas", "pie[1:6]")
 
 set.seed(1234)
 ex2.out = jags(ex2.data, ex2.inits, ex2.parameters, "Lab3.Posteriors.txt", 
-	n.chains=5, n.iter=11000, n.burnin=0, n.thin=2, DIC=F)
+	n.chains=5, n.iter=21000, n.burnin=0, n.thin=2, DIC=F)
 
 names(ex2.out)
 
@@ -138,19 +141,66 @@ names(ex2.out)
 Output2 = AddBurnin(ex2.out$BUGSoutput$sims.array,burnin=1000,n.thin=2)
 
 names(Output2)
-
 print(Output2$Burnin.Summary)
 
-#Graphs!
+#fit model with only 100 observations
+ex3.data = list(x=Xobs, y=Yobs, T=100, invXp=invXp) #Only 100 here
+ex3.inits = rep(list(list(pie=c(0.5,0.5,0.5,0.5,0.5,0.5))),5)
+ex3.parameters = c("betas", "pie[1:6]")
 
-temp3=Output1$Burnin.sims.matrix
-temp4=Output2$Burnin.sims.matrix
+set.seed(1234)
+ex3.out = jags(ex3.data, ex2.inits, ex2.parameters, "Lab3.Posteriors.txt", 
+               n.chains=5, n.iter=21000, n.burnin=0, n.thin=2, DIC=F)
+
+names(ex3.out)
+
+#Treat the first 1000 iterations as a burn in	
+Output3 = AddBurnin(ex3.out$BUGSoutput$sims.array,burnin=1000,n.thin=2)
+
+names(Output3)
+
+print(Output3$Burnin.Summary)
+
+#extra credit
+ex4.data = list(x=Xobs, y=Yobs, T=300, invXp=invXp)
+ex4.inits = rep(list(list(pie=c(0.5,0.5,0.5,0.5,0.5,0.5))),5)
+ex4.parameters = c("betas", "pie[1:6]", "case1", "case2", "case3")
+
+set.seed(1234)
+ex4.out = jags(ex4.data, ex4.inits, ex4.parameters, "Lab3.Extra.Posteriors.txt", 
+               n.chains=5, n.iter=21000, n.burnin=0, n.thin=2, DIC=F)
+names(ex4.out)
+
+#Treat the first 1000 iterations as a burn in	
+Output4 = AddBurnin(ex4.out$BUGSoutput$sims.array,burnin=1000,n.thin=2)
+
+names(Output4)
+print(Output4$Burnin.Summary)
+
+#Save these to workspace to load into markdown file without running the sim each time!
+save(Output1, file = "output1.RData")
+save(Output2, file = "output2.RData")
+save(Output3, file = "output3.RData")
+save(Output4, file = "Output4.RData")
+
+#Graphs!
+str(Output1$Burnin.sims.matrix)
+str(Output2$Burnin.sims.matrix)
+
+
+templab1=Output1$Burnin.sims.matrix
+templab2=Output2$Burnin.sims.matrix
+templab3=Output3
+summary(templab1)
+
+
+
 par(mfrow=c(2,3))
 plot(density(temp4[,7]),xlim=c(0,1),main="",xlab="pi1")  
 # pi1.  
 lines(density(temp3[,7],bw=.055),lty=2,lwd=2, col="blue")  
+legend(.3, 8, col=c("black", "blue"), lty=1:2 , lwd=c(1,2),legend=c("post","prior"))
 # prior
-legend(.3, 8, legend=c("post","prior"), col=c("black", "blue"), lty=1:2 , lwd=c(1,2))
 plot(density(temp4[,8]),xlim=c(0,1),main="",xlab="pi2")  
 # pi2.  
 lines(density(temp3[,8],bw=.05),lty=2,lwd=2, col="blue")  
@@ -172,22 +222,54 @@ plot(density(temp4[,12]),xlim=c(0,1),main="",xlab="pi6")
 lines(density(temp3[,12],bw=.085),lty=2,lwd=2, col="blue")  
 # prior
 
+summary(temp2)
+
+#Now for the betas
+par(mfrow=c(2,3))
+# beta1
+plot(density(temp2[,1]),xlim=c(-20,20),main="",xlab="beta1")  
+lines(density(temp1[,1]),lty=2,lwd=2, col="blue")  
+lines(density(temp3[,1]), lty=1, lwd=2, col="seagreen")
+legend(x="topright", col=c("black", "blue", "seagreen"), lty=1:3 , lwd=c(1,2,3),legend=c("post.","prior","partial"))
+# beta2
+plot(density(temp2[,2]),xlim=c(-.2,.2),main="",xlab="beta2")  
+lines(density(temp1[,2]),lty=2,lwd=2, col="blue")  
+lines(density(temp3[,2]), lty=1, lwd=2, col="seagreen")
+# beta3
+plot(density(temp2[,3]),xlim=c(-1,.2),main="",xlab="beta3")  
+lines(density(temp1[,3]),lty=2,lwd=2, col="blue")  
+lines(density(temp3[,3]), lty=1, lwd=2, col="seagreen")
+# beta4
+plot(density(temp2[,4]),xlim=c(-.1,.1),main="",xlab="beta4")  
+lines(density(temp1[,4]),lty=2,lwd=2, col="blue")  
+lines(density(temp3[,4]), lty=1, lwd=2, col="seagreen")
+# beta5
+plot(density(temp2[,5]),xlim=c(-4,5),main="",xlab="beta5")  
+lines(density(temp1[,5]),lty=2,lwd=2, col="blue")  
+lines(density(temp3[,5]), lty=1, lwd=2, col="seagreen")
+# beta6
+plot(density(temp2[,6]),xlim=c(-.15,.1),main="",xlab="beta6")  
+lines(density(temp1[,6]),lty=2,lwd=2, col="blue")  
+lines(density(temp3[,6]), lty=1, lwd=2, col="seagreen")
+
+
+head(Output2$Burnin.sims.array)
 
 par(mfrow=c(2,3))
-acf(ex2.out$BUGSoutput$sims.array[1:5000,1,1], main="beta1")
-acf(ex2.out$BUGSoutput$sims.array[1:5000,1,2], main="beta2")
-acf(ex2.out$BUGSoutput$sims.array[1:5000,1,3], main="beta3")
-acf(ex2.out$BUGSoutput$sims.array[1:5000,1,4], main="beta4")
-acf(ex2.out$BUGSoutput$sims.array[1:5000,1,5], main="beta5")
-acf(ex2.out$BUGSoutput$sims.array[1:5000,1,6], main="beta6")
+acf(ex2.out$BUGSoutput$sims.array[1:10500,1,1], main="beta1", lag.max = 200)
+acf(ex2.out$BUGSoutput$sims.array[1:10500,1,2], main="beta2")
+acf(ex2.out$BUGSoutput$sims.array[1:10500,1,3], main="beta3")
+acf(ex2.out$BUGSoutput$sims.array[1:10500,1,4], main="beta4")
+acf(ex2.out$BUGSoutput$sims.array[1:10500,1,5], main="beta5")
+acf(ex2.out$BUGSoutput$sims.array[1:10500,1,6], main="beta6")
 
 par(mfrow=c(2,3))
-acf(ex2.out$BUGSoutput$sims.array[1:5000,1,7], main="pi1")
-acf(ex2.out$BUGSoutput$sims.array[1:5000,1,8], main="pi2")
-acf(ex2.out$BUGSoutput$sims.array[1:5000,1,9], main="pi3")
-acf(ex2.out$BUGSoutput$sims.array[1:5000,1,10], main="pi4")
-acf(ex2.out$BUGSoutput$sims.array[1:5000,1,11], main="pi5")
-acf(ex2.out$BUGSoutput$sims.array[1:5000,1,12], main="pi6")
+acf(ex2.out$BUGSoutput$sims.array[1:10500,1,7], main="pi1",lag.max = 200)
+acf(ex2.out$BUGSoutput$sims.array[1:10500,1,8], main="pi2")
+acf(ex2.out$BUGSoutput$sims.array[1:10500,1,9], main="pi3")
+acf(ex2.out$BUGSoutput$sims.array[1:10500,1,10], main="pi4")
+acf(ex2.out$BUGSoutput$sims.array[1:10500,1,11], main="pi5")
+acf(ex2.out$BUGSoutput$sims.array[1:10500,1,12], main="pi6")
 
 par(mfrow=c(2,3))
 plot(ex2.out$BUGSoutput$sims.array[4500:5000,1,1], ylab="beta1", type="l", main="chain 1")

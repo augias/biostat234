@@ -72,7 +72,7 @@ tau.b=28.92, mbeta0= -5.682, precbeta0=.00140, x=x, y=y)
 # the jags call.  
 
 inits<-rep(list(list(beta0=0, beta=c(1,1,1,1),tau=1)),5)
-
+inits
 #DEFINE PARAMETERS TO MONITOR
 parameters <- c("beta0", "beta" , "tau")
 
